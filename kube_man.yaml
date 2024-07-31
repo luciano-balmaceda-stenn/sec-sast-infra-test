@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: insecure-namespace
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: insecure-secret
+  namespace: insecure-namespace
+type: Opaque
+data:
+  username: YWRtaW4=  # base64 encoded 'admin'
+  password: cGFzc3dvcmQ=  # base64 encoded 'password'
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: insecure-pod
+  namespace: insecure-namespace
+spec:
+  containers:
+  - name: insecure-container
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    env:
+    - name: USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: insecure-secret
+          key: username
+    - name: PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: insecure-secret
+          key: password
+    securityContext:
+      privileged: true  # Insecure: Running with privileged access
+      runAsUser: 0  # Insecure: Running as root user
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: insecure-service
+  namespace: insecure-namespace
+spec:
+  selector:
+    app: insecure-pod
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: LoadBalancer  # Insecure: Exposing service to the internet
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insecure-deployment
+  namespace: insecure-namespace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: insecure-pod
+  template:
+    metadata:
+      labels:
+        app: insecure-pod
+    spec:
+      containers:
+      - name: insecure-container
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+        securityContext:
+          privileged: true  # Insecure: Running with privileged access
+          runAsUser: 0  # Insecure: Running as root user
